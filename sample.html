@@ -34,7 +34,10 @@ canvas{display:block;}
   <button class="menu-btn" id="resumeBtn">Resume</button>
   <button class="menu-btn" id="restartBtn">Restart</button>
 </div>
-<audio id="bgmusic" src="https://cdn.pixabay.com/audio/2022/07/26/audio_122b6a03ab.mp3" loop preload="auto"></audio>
+<!-- Sound effects -->
+<audio id="bgmusic" src="https://cdn.pixabay.com/audio/2022/10/16/audio_1222e19705.mp3" loop preload="auto"></audio>
+<audio id="blastSound" src="https://cdn.pixabay.com/audio/2022/10/16/audio_1237fadeb3.mp3" preload="auto"></audio>
+<audio id="typeSound" src="https://cdn.pixabay.com/audio/2022/07/26/audio_122b6a03ab.mp3" preload="auto"></audio>
 <script>
 // Space/neutral word list
 const wordList = [
@@ -42,18 +45,18 @@ const wordList = [
   'phase','pulse','dream','echo','vapor','scope','sketch','blade','spark','trace','summit','craft','bullet','speed','burst','scan','flame','dust','prime','myth','plot','rhyme','scale','frost','spell','spike','steam','zone','crest','mesh',
   'hydro','blast','solar','agent','blackhole','drift','streak','orbit','quantum','stellar','silicon','apollo','sirius','venus','mars','shuttle','aster','milkyway','transit','uranus','comet','dawn','void','magnet','belt','constellation','beam','asteroid'
 ];
+// Simple but varied enemy icons
 const icons = [
   function(ctx,x,y,scale=1){
-    ctx.save();
-    ctx.translate(x,y);ctx.scale(scale,scale);
+    ctx.save();ctx.translate(x,y);ctx.scale(scale,scale);
     ctx.beginPath();ctx.arc(0,0,15,0,2*Math.PI);
-    ctx.fillStyle="#b3e2ff";ctx.shadowBlur=14;ctx.shadowColor="#2cd4ff";ctx.globalAlpha=0.92;ctx.fill();
+    ctx.fillStyle="#b3e2ff";ctx.shadowBlur=14;ctx.shadowColor="#2cd4ff";ctx.globalAlpha=0.94;ctx.fill();
     ctx.globalAlpha=1;ctx.restore();
   },
   function(ctx,x,y,scale=1){
     ctx.save();ctx.translate(x,y);ctx.scale(scale,scale);
     ctx.beginPath();ctx.arc(0,0,11,0,2*Math.PI);
-    ctx.fillStyle="#fffad3";ctx.shadowBlur=10;ctx.shadowColor="#2cd4ff";ctx.globalAlpha=0.93;ctx.fill();
+    ctx.fillStyle="#c3fad3";ctx.shadowBlur=10;ctx.shadowColor="#2cd4ff";ctx.globalAlpha=0.96;ctx.fill();
     ctx.globalAlpha=1;ctx.restore();
   },
   function(ctx,x,y,scale=1){
@@ -63,7 +66,6 @@ const icons = [
     ctx.globalAlpha=1;ctx.restore();
   }
 ];
-
 const c=document.getElementById('c'),ctx=c.getContext('2d');
 c.width=innerWidth;c.height=innerHeight;
 let enemies=[],bullets=[],particles=[];
@@ -73,10 +75,11 @@ let gameStarted=false,paused=false,last=0,spawnTimer=0,levelTimer=0,gameOver=fal
 
 const overlay=document.getElementById('overlay'),pauseMenu=document.getElementById('pauseMenu');
 const bgmusic=document.getElementById('bgmusic');
+const blastSound=document.getElementById('blastSound');
+const typeSound=document.getElementById('typeSound');
 document.getElementById('startBtn').onclick=startGame;
 document.getElementById('resumeBtn').onclick=()=>{paused=false;pauseMenu.style.display='none';playMusic();};
 document.getElementById('restartBtn').onclick=()=>{pauseMenu.style.display='none';startGame();};
-
 window.addEventListener('keydown',e=>{
   if(!gameStarted||gameOver)return;
   if(e.key==='Escape' && !gameOver){
@@ -84,7 +87,7 @@ window.addEventListener('keydown',e=>{
     if(paused) pauseMusic(); else playMusic();
   }
 });
-
+// Utility
 function rand(a,b){return Math.random()*(b-a)+a;}
 function pickIcon() {let idx = Math.floor(rand(0,icons.length)); return icons[idx];}
 function drawSpaceship(ctx,x,y,scale=1.65){
@@ -102,19 +105,18 @@ function spawnEnemy(){
   if(words.length===0)return;
   const index=Math.floor(Math.random()*words.length),
     word=words.splice(index,1)[0];
-  // Game level affects speed/length
   let sAdd = Math.min(level*0.09, 0.29), lenAdd = Math.min(level-1,2);
   let newWord = (word.length<6)?word+wordList[Math.floor(Math.random()*wordList.length)].slice(0,lenAdd):word;
   enemies.push({
     x:rand(75,c.width-135), y:-38, word:newWord, progress:0,
-    speed:level==1?rand(0.3,0.42):rand(0.45+sAdd,0.7+sAdd), hit:false,
+    speed:level==1?rand(0.23,0.34):rand(0.45+sAdd,0.7+sAdd), hit:false,
     draw:pickIcon()
   });
 }
 function drawBackground(){
   ctx.save();
   let grd=ctx.createRadialGradient(c.width/2,c.height/2,50,c.width/2,c.height/2,c.width*0.42);
-  grd.addColorStop(0,"#8cfaff25");grd.addColorStop(1,"#110d29");
+  grd.addColorStop(0,"#8cfaff20");grd.addColorStop(1,"#110d29");
   ctx.globalAlpha=0.98;ctx.fillStyle=grd;ctx.fillRect(0,0,c.width,c.height);
   ctx.restore();
 }
@@ -130,13 +132,9 @@ function drawEnemies(){
     let offset = ctx.measureText(done).width;
 
     ctx.shadowColor="#222";ctx.shadowBlur=5;
-    ctx.fillStyle = "#ffe843"; // completed
-    ctx.fillText(done, e.x - 28, e.y - 20);
-
+    ctx.fillStyle = "#ffe843"; ctx.fillText(done, e.x - 28, e.y - 20);
     ctx.shadowColor="#003058";ctx.shadowBlur=6;
-    ctx.fillStyle = "#f0f8ff"; // remaining
-    ctx.fillText(todo, e.x - 28 + offset, e.y - 20);
-
+    ctx.fillStyle = "#f0f8ff"; ctx.fillText(todo, e.x - 28 + offset, e.y - 20);
     ctx.restore();
   });
 }
@@ -176,7 +174,7 @@ function update(dt){
       let dx=b.target.x-b.x,dy=b.target.y-b.y;
       let len=Math.hypot(dx,dy);if(len>0){dx/=len;dy/=len;}
       b.x+=dx*dt*0.43;b.y+=dy*dt*0.44;
-      if(len<21){b.target.hit=true;explode(b.target.x,b.target.y);b.remove=true; playBlastSound();}
+      if(len<21){b.target.hit=true;explode(b.target.x,b.target.y);b.remove=true; playBlast();}
     }
     else b.y-=dt*0.64;
   });
@@ -184,7 +182,7 @@ function update(dt){
 
   enemies.forEach(e=>{
     if(e.y>player.y+22&&!e.hit){
-      playExplosionSound();showGameOver();
+      playExplosion();showGameOver();
     }
   });
   enemies=enemies.filter(e=>{
@@ -198,34 +196,9 @@ function update(dt){
   particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.a-=0.021;});
   particles=particles.filter(p=>p.a>0);
 }
-// Sound assets
-function playExplosionSound() { 
-  let ctx = new (window.AudioContext||window.webkitAudioContext)();
-  let o = ctx.createOscillator(), g = ctx.createGain();
-  o.type='square'; o.frequency.value=90;
-  g.gain.value=0.30; o.connect(g); g.connect(ctx.destination);
-  o.start();
-  setTimeout(()=>{g.gain.linearRampToValueAtTime(0,ctx.currentTime+0.14)},60);
-  setTimeout(()=>{o.stop();ctx.close()},180);
-}
-function playBlastSound() {
-  let ctx = new (window.AudioContext||window.webkitAudioContext)();
-  let o = ctx.createOscillator(), g = ctx.createGain();
-  o.type='sawtooth'; o.frequency.value=340;
-  g.gain.value=0.10; o.connect(g); g.connect(ctx.destination);
-  o.start();
-  setTimeout(()=>{g.gain.linearRampToValueAtTime(0,ctx.currentTime+0.09)},22);
-  setTimeout(()=>{o.stop();ctx.close()},100);
-}
-function playTypeSound() {
-  let ctx = new (window.AudioContext||window.webkitAudioContext)();
-  let o = ctx.createOscillator(), g = ctx.createGain();
-  o.type='triangle'; o.frequency.value=650;
-  g.gain.value=0.06; o.connect(g); g.connect(ctx.destination);
-  o.start();
-  setTimeout(()=>{g.gain.linearRampToValueAtTime(0,ctx.currentTime+0.08)},15);
-  setTimeout(()=>{o.stop();ctx.close()},65);
-}
+function playExplosion() { try{blastSound.currentTime=0;blastSound.play();}catch(e){} }
+function playBlast() { try{blastSound.currentTime=0;blastSound.play();}catch(e){} }
+function playType() { try{typeSound.currentTime=0;typeSound.play();}catch(e){} }
 function playMusic() { try{bgmusic.play();}catch(e){} }
 function pauseMusic() { try{bgmusic.pause();}catch(e){} }
 function explode(x,y){
@@ -237,7 +210,7 @@ function fireAtTarget(target){bullets.push({x:player.x,y:player.y-22,target});}
 // EMP blast
 function emp(){
   if(!empAvailable)return;
-  enemies.forEach(e=>{explode(e.x,e.y); playBlastSound();});
+  enemies.forEach(e=>{explode(e.x,e.y); playBlast();});
   enemies=[];empAvailable=false;
   document.getElementById('emp_ready').textContent='No';
 }
@@ -248,33 +221,32 @@ document.addEventListener('keydown',e=>{
   const k=e.key.toLowerCase();
   if(!/^[a-z]$/.test(k))return;
 
-  // Only allow typing on the actively selected enemy
+  // Only allow typing on the actively selected enemy, do not blast other words
   if(!activeEnemy){
-    // Find only first enemy whose first letter matches NOT already started, and not hit
     activeEnemy = enemies.find(e=>e.progress===0 && e.word[0]===k && !e.hit);
     if(activeEnemy){
       fireAtTarget(activeEnemy);
       activeEnemy.progress++;
-      playTypeSound();
+      playType();
     }
-    // Typing wrong key does nothing!
+    // If no word starts with typed letter, or already typing, ignore
     return;
   }
   // Must type correct next letter of active word only
   if(k===activeEnemy.word[activeEnemy.progress]){
     fireAtTarget(activeEnemy);
     activeEnemy.progress++;
-    playTypeSound();
+    playType();
     if(activeEnemy.progress>=activeEnemy.word.length){
       explode(activeEnemy.x,activeEnemy.y); 
-      playBlastSound();
+      playBlast();
       enemies.splice(enemies.indexOf(activeEnemy),1);
       activeEnemy=null;score+=10;killstreak++;
       document.getElementById('score').textContent=score;
       if(killstreak%15===0&&killstreak>0){empAvailable=true;document.getElementById('emp_ready').textContent='Yes';}
     }
   }else{
-    // Wrong letter typed: cancel active word, no blast!
+    // Wrong letter typed: cancel active word, do not blast any word!
     activeEnemy=null;
   }
 });
