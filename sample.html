@@ -30,22 +30,22 @@ canvas{display:block;}
 </div>
 <div id="pauseMenu" style="display:none">
   <h2>Game Paused</h2>
-  <div class="stats">Press Resume to continue, or Restart to start over.</div>
+  <div class="stats">Press Resume to continue, Restart for new game.</div>
   <button class="menu-btn" id="resumeBtn">Resume</button>
   <button class="menu-btn" id="restartBtn">Restart</button>
 </div>
 <!-- Sound effects -->
-<audio id="bgmusic" src="https://cdn.pixabay.com/audio/2022/10/16/audio_1222e19705.mp3" loop preload="auto"></audio>
+<audio id="bgmusic" src="https://cdn.pixabay.com/audio/2023/07/30/audio_1287c8d71e.mp3" loop preload="auto"></audio>
 <audio id="blastSound" src="https://cdn.pixabay.com/audio/2022/10/16/audio_1237fadeb3.mp3" preload="auto"></audio>
-<audio id="typeSound" src="https://cdn.pixabay.com/audio/2022/07/26/audio_122b6a03ab.mp3" preload="auto"></audio>
+<audio id="typeSound" src="https://cdn.pixabay.com/audio/2022/09/30/audio_1268ef8740.mp3" preload="auto"></audio>
 <script>
-// Space/neutral word list
+// Space-themed word list
 const wordList = [
   'galaxy','neutron','meteor','cosmos','jupiter','astronaut','probe','orbit','rocket','eclipse','asteroid','crater','telescope','launch','nebula','satellite','ufo','star','moon','planet','comet','plasma','gravity','energy','system','element',
   'phase','pulse','dream','echo','vapor','scope','sketch','blade','spark','trace','summit','craft','bullet','speed','burst','scan','flame','dust','prime','myth','plot','rhyme','scale','frost','spell','spike','steam','zone','crest','mesh',
-  'hydro','blast','solar','agent','blackhole','drift','streak','orbit','quantum','stellar','silicon','apollo','sirius','venus','mars','shuttle','aster','milkyway','transit','uranus','comet','dawn','void','magnet','belt','constellation','beam','asteroid'
+  'hydro','blast','solar','agent','blackhole','drift','streak','quantum','stellar','silicon','apollo','sirius','venus','mars','shuttle','aster','milkyway','transit','uranus','comet','dawn','void','magnet','belt','constellation','beam','asteroid'
 ];
-// Simple but varied enemy icons
+// Simple enemy icons
 const icons = [
   function(ctx,x,y,scale=1){
     ctx.save();ctx.translate(x,y);ctx.scale(scale,scale);
@@ -77,17 +77,17 @@ const overlay=document.getElementById('overlay'),pauseMenu=document.getElementBy
 const bgmusic=document.getElementById('bgmusic');
 const blastSound=document.getElementById('blastSound');
 const typeSound=document.getElementById('typeSound');
+// Control overlays and pause/restart
 document.getElementById('startBtn').onclick=startGame;
 document.getElementById('resumeBtn').onclick=()=>{paused=false;pauseMenu.style.display='none';playMusic();};
 document.getElementById('restartBtn').onclick=()=>{pauseMenu.style.display='none';startGame();};
 window.addEventListener('keydown',e=>{
   if(!gameStarted||gameOver)return;
-  if(e.key==='Escape' && !gameOver){
+  if(e.key==='Escape'){
     paused=!paused;pauseMenu.style.display=paused?'flex':'none';
     if(paused) pauseMusic(); else playMusic();
   }
 });
-// Utility
 function rand(a,b){return Math.random()*(b-a)+a;}
 function pickIcon() {let idx = Math.floor(rand(0,icons.length)); return icons[idx];}
 function drawSpaceship(ctx,x,y,scale=1.65){
@@ -126,11 +126,9 @@ function drawEnemies(){
     e.draw(ctx,e.x,e.y,1.2);
 
     ctx.font = "bold 26px Consolas";
-    ctx.textAlign = "left";
-    ctx.textBaseline = "middle";
+    ctx.textAlign = "left";ctx.textBaseline = "middle";
     let done = e.word.slice(0,e.progress), todo = e.word.slice(e.progress);
     let offset = ctx.measureText(done).width;
-
     ctx.shadowColor="#222";ctx.shadowBlur=5;
     ctx.fillStyle = "#ffe843"; ctx.fillText(done, e.x - 28, e.y - 20);
     ctx.shadowColor="#003058";ctx.shadowBlur=6;
@@ -182,7 +180,7 @@ function update(dt){
 
   enemies.forEach(e=>{
     if(e.y>player.y+22&&!e.hit){
-      playExplosion();showGameOver();
+      playBlast();showGameOver();
     }
   });
   enemies=enemies.filter(e=>{
@@ -196,7 +194,6 @@ function update(dt){
   particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.a-=0.021;});
   particles=particles.filter(p=>p.a>0);
 }
-function playExplosion() { try{blastSound.currentTime=0;blastSound.play();}catch(e){} }
 function playBlast() { try{blastSound.currentTime=0;blastSound.play();}catch(e){} }
 function playType() { try{typeSound.currentTime=0;typeSound.play();}catch(e){} }
 function playMusic() { try{bgmusic.play();}catch(e){} }
@@ -221,18 +218,20 @@ document.addEventListener('keydown',e=>{
   const k=e.key.toLowerCase();
   if(!/^[a-z]$/.test(k))return;
 
-  // Only allow typing on the actively selected enemy, do not blast other words
+  // Only allow typing on the activeEnemy, or select a new one if none in progress
   if(!activeEnemy){
-    activeEnemy = enemies.find(e=>e.progress===0 && e.word[0]===k && !e.hit);
-    if(activeEnemy){
+    // If no word in progress, start new for first matching word ONLY
+    let match = enemies.find(e=>e.progress===0 && e.word[0]===k && !e.hit);
+    if(match){
+      activeEnemy = match;
       fireAtTarget(activeEnemy);
       activeEnemy.progress++;
       playType();
     }
-    // If no word starts with typed letter, or already typing, ignore
+    // If none match, ignore key
     return;
   }
-  // Must type correct next letter of active word only
+  // Must type correct next letter of ONLY the active word
   if(k===activeEnemy.word[activeEnemy.progress]){
     fireAtTarget(activeEnemy);
     activeEnemy.progress++;
@@ -246,7 +245,7 @@ document.addEventListener('keydown',e=>{
       if(killstreak%15===0&&killstreak>0){empAvailable=true;document.getElementById('emp_ready').textContent='Yes';}
     }
   }else{
-    // Wrong letter typed: cancel active word, do not blast any word!
+    // Wrong letter: active word canceled, no blast or highlight
     activeEnemy=null;
   }
 });
